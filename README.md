@@ -42,6 +42,19 @@ IPs**, so GitHub Actions cannot see Target at all. Verified on a real runner.
 Target is the source that was seen restocking, so the Mac runner is the
 important one. The two keep separate state files and never conflict.
 
+## Only new, only first-party
+
+Three independent gates, so a reseller cannot slip through by pricing under
+the ceiling:
+
+1. **Structural** — Target Plus partner listings are dropped on
+   `is_marketplace` and on a non-empty `product_vendors`; Best Buy
+   marketplace items are dropped on `marketplace` and on a seller that is
+   not Best Buy itself. Sony's own store is first-party by definition.
+2. **Condition** — refurbished, renewed, open-box, pre-owned and used
+   listings are excluded by name and, at Best Buy, by `condition`.
+3. **Price** — anything above `MAX_PRICE` is ignored.
+
 ## Timing
 
 A restock observed on 2026-09-21 lasted **under one minute**. A plain
@@ -89,7 +102,7 @@ Everything lives in `config.js` or is overridable by environment variable.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `MAX_PRICE` | `950` | Ignore anything above this — blocks scalper listings |
+| `MAX_PRICE` | `900` | Ignore anything above this — MSRP is $899.99 |
 | `POLL_SECONDS` | `30` | Seconds between polls inside one run |
 | `LOOP_SECONDS` | `570` | How long one run keeps polling |
 | `DEEP_EVERY` | `4` | Check store-level stock every Nth poll |

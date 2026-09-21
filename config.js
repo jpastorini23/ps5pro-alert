@@ -6,9 +6,9 @@
 // US address or can be picked up in San Francisco.
 
 export const CONFIG = {
-  // Alert only at or below this price. PS5 Pro MSRP is $899.99;
-  // 950 leaves room for tax-inclusive displays but blocks scalper listings.
-  maxPrice: Number(process.env.MAX_PRICE ?? 950),
+  // Alert only at or below this price. MSRP is $899.99, and he only wants
+  // it at or under list — anything above is a reseller or a markup.
+  maxPrice: Number(process.env.MAX_PRICE ?? 900),
 
 
   // Everything is anchored on the hotel: 424 Clay St, Financial District.

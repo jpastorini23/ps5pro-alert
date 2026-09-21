@@ -13,20 +13,30 @@ export const minIntervalSeconds = 60;
 // Matches the console itself, not controllers, games or accessories.
 const NAME_RE = /playstation\W*5\W*pro/i;
 const EXCLUDE_RE = /(controller|headset|cover|game|remote|stand|charging|bundle case|skin)/i;
+// New units only — no refurbished, open-box, pre-owned or renewed stock.
+const NOT_NEW_RE = /(refurb|renew|pre-?owned|open[- ]box|used|geek squad)/i;
 
 export async function check({ deep = true } = {}) {
   const apiKey = process.env.BESTBUY_API_KEY;
   if (!apiKey) return { skipped: 'BESTBUY_API_KEY not set' };
 
-  const show = 'sku,name,salePrice,regularPrice,onlineAvailability,inStoreAvailability,url,addToCartUrl';
+  const show =
+    'sku,name,salePrice,regularPrice,onlineAvailability,inStoreAvailability,url,addToCartUrl,marketplace,condition';
   const searchUrl =
     `${BASE}/products(search=playstation&search=5&search=pro&type=HardGood)` +
     `?format=json&pageSize=25&show=${show}&apiKey=${apiKey}`;
 
   const data = await get(searchUrl, { json: true });
-  const products = (data?.products ?? []).filter(
-    (p) => NAME_RE.test(p.name ?? '') && !EXCLUDE_RE.test(p.name ?? '')
-  );
+  // Best Buy lists marketplace resellers next to its own stock, often far
+  // above MSRP. Only Best Buy's own offer is ever alerted on.
+  const products = (data?.products ?? []).filter((p) => {
+    if (!NAME_RE.test(p.name ?? '') || EXCLUDE_RE.test(p.name ?? '')) return false;
+    if (NOT_NEW_RE.test(p.name ?? '') || (p.condition && !/new/i.test(p.condition))) return false;
+    if (p.marketplace === true) return false;
+    const seller = p.sellerName ?? p.soldBy ?? '';
+    if (seller && !/^best\s*buy$/i.test(seller.trim())) return false;
+    return true;
+  });
   if (products.length === 0) return [];
 
   const offers = [];

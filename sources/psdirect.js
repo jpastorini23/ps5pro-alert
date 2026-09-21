@@ -37,6 +37,10 @@ async function readProduct(url) {
   const price = html.match(/productPrice:"([\d.]+)"/);
   const name = html.match(/<title>\s*([^<|]+)/);
 
+  if (/refurb|renew|pre-?owned/i.test(html.match(/<title>[^<]*/)?.[0] ?? '')) {
+    return null; // Sony occasionally lists refurbished units; he wants new only.
+  }
+
   return {
     key: `psdirect:${url.split('/').pop()}`,
     channel: 'Sony official store',
@@ -48,7 +52,7 @@ async function readProduct(url) {
 }
 
 export async function check({ deep = true } = {}) {
-  if (PINNED) return [await readProduct(PINNED)];
+  if (PINNED) return [await readProduct(PINNED)].filter(Boolean);
   if (deep || !cachedPages) cachedPages = await discover();
-  return Promise.all(cachedPages.map(readProduct));
+  return (await Promise.all(cachedPages.map(readProduct))).filter(Boolean);
 }

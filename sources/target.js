@@ -4,10 +4,13 @@ import { CONFIG } from '../config.js';
 // Target's public store API. Key is the one target.com ships to the browser.
 const KEY = '9f36aeafbe60771e321a7cc95a78140772ab3e96';
 
-// Any PS5 Pro console or bundle counts. Accessories do not.
+// Any PS5 Pro console or bundle counts. Accessories do not, and neither
+// does anything sold by a Target Plus partner — only Target's own stock.
 const KEYWORDS = ['playstation 5 pro console', 'ps5 pro bundle'];
 const MATCH = /5\s*pro/i;
 const EXCLUDE = /(controller|cover|headset|game|stand|case|remote|charging|skin|faceplate)/i;
+// New units only — no refurbished, open-box, pre-owned or renewed stock.
+const NOT_NEW = /(refurb|renew|pre-?owned|open[- ]box|used|certified)/i;
 
 export const id = 'target';
 export const label = 'Target';
@@ -55,6 +58,16 @@ function fulfillmentUrl(tcin, storeId) {
   return `https://redsky.target.com/redsky_aggregations/v1/web/product_summary_with_fulfillment_v1?${q}`;
 }
 
+// Target Plus partners sell through target.com at their own prices. Two
+// independent signals mark them; either one disqualifies a listing, so a
+// reseller cannot slip through by pricing under the ceiling.
+function isReseller(product) {
+  const item = product.item ?? {};
+  if (item.fulfillment?.is_marketplace === true) return true;
+  if (Array.isArray(item.product_vendors) && item.product_vendors.length > 0) return true;
+  return false;
+}
+
 // Finds every PS5 Pro console/bundle Target lists, so a new bundle is picked
 // up automatically instead of needing a hardcoded SKU.
 async function discover() {
@@ -70,7 +83,11 @@ async function discover() {
       const title = (p.item?.product_description?.title ?? '')
         .replace(/&#\d+;|®|™/g, '')
         .trim();
-      if (!MATCH.test(title) || EXCLUDE.test(title)) continue;
+      if (!MATCH.test(title) || EXCLUDE.test(title) || NOT_NEW.test(title)) continue;
+      if (isReseller(p)) {
+        console.log(`  (skipping reseller listing: ${title})`);
+        continue;
+      }
       found.set(p.tcin, title);
     }
   }
