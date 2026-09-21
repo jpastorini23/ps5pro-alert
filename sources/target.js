@@ -11,6 +11,8 @@ const EXCLUDE = /(controller|cover|headset|game|stand|case|remote|charging|skin|
 
 export const id = 'target';
 export const label = 'Target';
+// Target's stock oscillates in sub-minute windows, so it is polled hard.
+export const minIntervalSeconds = 10;
 
 let cachedProducts = null; // Rediscovered on every deep cycle.
 

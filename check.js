@@ -36,10 +36,11 @@ async function readState() {
 }
 
 const LOOP_SECONDS = Number(process.env.LOOP_SECONDS ?? 570); // stop before the next cron
-const POLL_SECONDS = Number(process.env.POLL_SECONDS ?? 20);
-const DEEP_EVERY = Number(process.env.DEEP_EVERY ?? 4); // store-level check cadence
+const POLL_SECONDS = Number(process.env.POLL_SECONDS ?? 10);
+const DEEP_EVERY = Number(process.env.DEEP_EVERY ?? 12); // store-level check cadence
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const lastPolled = new Map();
 
 // One pass over every source. Returns the offers that just became buyable.
 async function cycle(state, deep) {
@@ -47,6 +48,15 @@ async function cycle(state, deep) {
 
   for (const source of SOURCES) {
     const s = (state.sources[source.id] ??= {});
+
+    // Each source sets its own floor so the fast one is not slowed to the
+    // pace of the slow ones, and the slow ones are not hammered.
+    const floor = (source.minIntervalSeconds ?? 0) * 1000;
+    if (floor && lastPolled.get(source.id) && Date.now() - lastPolled.get(source.id) < floor) {
+      continue;
+    }
+    lastPolled.set(source.id, Date.now());
+
     let offers;
     try {
       const result = await source.check({ deep });

@@ -8,6 +8,7 @@ const BASE = 'https://api.bestbuy.com/v1';
 
 export const id = 'bestbuy';
 export const label = 'Best Buy';
+export const minIntervalSeconds = 60;
 
 // Matches the console itself, not controllers, games or accessories.
 const NAME_RE = /playstation\W*5\W*pro/i;

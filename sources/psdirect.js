@@ -9,6 +9,8 @@ const PINNED = process.env.PSDIRECT_URL;
 
 export const id = 'psdirect';
 export const label = 'PlayStation Direct';
+// Sony drops are queued rather than flickering; a slower poll is enough.
+export const minIntervalSeconds = 60;
 
 let cachedPages = null;
 
