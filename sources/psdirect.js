@@ -1,32 +1,52 @@
 import { get } from './http.js';
 
-// PSDIRECT_URL override exists so the alert path can be exercised against a
-// product that is actually in stock, without waiting for a real restock.
-const URL =
-  process.env.PSDIRECT_URL ??
-  'https://direct.playstation.com/en-us/buy-consoles/playstation5-pro-console-2-tb';
+const ORIGIN = 'https://direct.playstation.com';
+const LISTING = `${ORIGIN}/en-us/consoles`;
+
+// PSDIRECT_URL pins a single product — used to exercise the alert path
+// against something that is actually in stock.
+const PINNED = process.env.PSDIRECT_URL;
 
 export const id = 'psdirect';
 export const label = 'PlayStation Direct';
 
-export async function check(_opts = {}) {
-  const html = await get(URL);
+let cachedPages = null;
 
-  // Gotcha: the page emits http://schema.org/InStock but https://schema.org/OutOfStock.
-  // Match protocol-agnostically or in-stock is silently missed.
-  const m = html.match(/itemprop="availability"\s+href="https?:\/\/schema\.org\/(\w+)"/i);
-  if (!m) throw new Error('availability marker not found — page structure changed');
+// Any PS5 Pro console or bundle Sony lists, discovered rather than hardcoded.
+async function discover() {
+  const html = await get(LISTING);
+  const links = new Set();
+  for (const m of html.matchAll(/href="(\/en-us\/(?:buy-consoles|bundles)\/[^"]+)"/g)) {
+    if (/pro/i.test(m[1])) links.add(ORIGIN + m[1]);
+  }
+  if (links.size === 0) throw new Error('no PS5 Pro listing found on the consoles page');
+  return [...links];
+}
 
-  const status = m[1];
-  const priceMatch = html.match(/productPrice:"([\d.]+)"/);
-  const price = priceMatch ? Number(priceMatch[1]) : null;
+async function readProduct(url) {
+  const html = await get(url);
 
-  return [{
-    key: 'psdirect:ship',
+  // Gotcha: this page emits http://schema.org/InStock but
+  // https://schema.org/OutOfStock. Match protocol-agnostically or a
+  // real restock is silently missed.
+  const avail = html.match(/itemprop="availability"\s+href="https?:\/\/schema\.org\/(\w+)"/i);
+  if (!avail) throw new Error(`availability marker not found at ${url}`);
+
+  const price = html.match(/productPrice:"([\d.]+)"/);
+  const name = html.match(/<title>\s*([^<|]+)/);
+
+  return {
+    key: `psdirect:${url.split('/').pop()}`,
     channel: 'Sony official store',
-    inStock: /^InStock$/i.test(status),
-    price,
-    url: URL,
-    note: 'Ships to a US address only',
-  }];
+    inStock: /^InStock$/i.test(avail[1]),
+    price: price ? Number(price[1]) : null,
+    url,
+    note: `${(name ? name[1].trim() : 'PS5 Pro').slice(0, 60)} · ships to a US address`,
+  };
+}
+
+export async function check({ deep = true } = {}) {
+  if (PINNED) return [await readProduct(PINNED)];
+  if (deep || !cachedPages) cachedPages = await discover();
+  return Promise.all(cachedPages.map(readProduct));
 }

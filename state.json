@@ -1,7 +1,8 @@
 {
   "offers": {
     "target:ship": {
-      "hit": false
+      "hit": true,
+      "lastAlertAt": "2026-09-21T14:59:09.125Z"
     },
     "target:store:2766": {
       "hit": false
@@ -13,7 +14,8 @@
       "hit": false
     },
     "psdirect:ship": {
-      "hit": false
+      "hit": true,
+      "lastAlertAt": "2026-09-21T14:59:10.152Z"
     }
   },
   "sources": {

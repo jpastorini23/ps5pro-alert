@@ -6,7 +6,7 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 PLIST="$HOME/Library/LaunchAgents/com.juancruz.ps5pro-alert.plist"
 
 if [ ! -f "$REPO/.env" ]; then
-  echo "Missing $REPO/.env — copy .env.example to .env and fill it in first."
+  echo "Missing $REPO/.env — copy .env.example to .env and set NOTIFY_EMAIL."
   exit 1
 fi
 

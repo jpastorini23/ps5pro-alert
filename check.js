@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
-import { Resend } from 'resend';
+import { send, transport, notifyDesktop } from './mailer.js';
 import { CONFIG } from './config.js';
 import * as target from './sources/target.js';
 import * as psdirect from './sources/psdirect.js';
@@ -36,7 +36,7 @@ async function readState() {
 }
 
 const LOOP_SECONDS = Number(process.env.LOOP_SECONDS ?? 570); // stop before the next cron
-const POLL_SECONDS = Number(process.env.POLL_SECONDS ?? 30);
+const POLL_SECONDS = Number(process.env.POLL_SECONDS ?? 20);
 const DEEP_EVERY = Number(process.env.DEEP_EVERY ?? 4); // store-level check cadence
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -143,75 +143,89 @@ async function run() {
   if (!DRY_RUN) await writeFile(STATE_FILE, JSON.stringify(state, null, 2) + '\n');
 }
 
-function mailer() {
-  const apiKey = process.env.RESEND_API_KEY;
-  const to = process.env.NOTIFY_EMAIL;
-  if (!apiKey) throw new Error('RESEND_API_KEY not set');
-  if (!to) throw new Error('NOTIFY_EMAIL not set');
-  return { resend: new Resend(apiKey), to };
-}
-
 const money = (n) => `$${Number(n).toFixed(2)}`;
 
-async function sendStockAlert(hits) {
-  const { resend, to } = mailer();
+export async function sendStockAlert(hits) {
   const best = hits[0];
+  const text = [
+    'PS5 Pro is available. Stock can disappear in minutes.',
+    '',
+    ...hits.map((h) =>
+      [
+        `${h.retailer} — ${money(h.price)}`,
+        `  ${h.channel}`,
+        h.note ? `  ${h.note}` : null,
+        `  ${h.url}`,
+      ]
+        .filter(Boolean)
+        .join('\n')
+    ),
+    '',
+    `Price ceiling ${money(CONFIG.maxPrice)}.`,
+  ].join('\n');
+
   const rows = hits
     .map(
       (h) => `
-      <tr>
-        <td style="padding:14px 0;border-bottom:1px solid #eee;">
-          <div style="font-weight:700;color:#111;">${h.retailer} — ${money(h.price)}</div>
-          <div style="color:#444;padding-top:4px;">${h.channel}</div>
-          ${h.note ? `<div style="color:#888;padding-top:4px;">${h.note}</div>` : ''}
-          <div style="padding-top:10px;">
-            <a href="${h.url}" style="color:#0b5cff;font-weight:700;">Open product page →</a>
-          </div>
-        </td>
-      </tr>`
+      <tr><td style="padding:14px 0;border-bottom:1px solid #eee;">
+        <div style="font-weight:700;color:#111;">${h.retailer} — ${money(h.price)}</div>
+        <div style="color:#444;padding-top:4px;">${h.channel}</div>
+        ${h.note ? `<div style="color:#888;padding-top:4px;">${h.note}</div>` : ''}
+        <div style="padding-top:10px;"><a href="${h.url}" style="color:#0b5cff;font-weight:700;">Open product page →</a></div>
+      </td></tr>`
     )
     .join('');
 
-  const { error } = await resend.emails.send({
-    from: 'PS5 Pro Alert <onboarding@resend.dev>',
-    to,
+  await notifyDesktop(
+    `PS5 Pro in stock — ${best.retailer}`,
+    `${money(best.price)} · ${best.channel}`
+  );
+
+  await send({
     subject: `PS5 Pro in stock — ${best.retailer} ${money(best.price)}`,
+    text,
     html: `
       <div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;font-size:15px;line-height:1.5;max-width:560px;margin:0 auto;padding:28px;">
-        <div style="font-size:15px;font-weight:700;color:#0a7d32;padding-bottom:6px;">PS5 Pro available</div>
+        <div style="font-weight:700;color:#0a7d32;padding-bottom:6px;">PS5 Pro available</div>
         <div style="color:#444;padding-bottom:18px;">Stock can disappear in minutes.</div>
         <table style="width:100%;border-collapse:collapse;">${rows}</table>
-        <div style="padding-top:26px;">
-          <a href="${best.url}" style="display:inline-block;padding:14px 26px;background:#0a7d32;color:#fff;text-decoration:none;border-radius:6px;font-weight:700;">Buy now</a>
-        </div>
-        <div style="color:#999;padding-top:30px;border-top:1px solid #eee;margin-top:26px;">
-          Price ceiling ${money(CONFIG.maxPrice)} · checked every 10 minutes
-        </div>
+        <div style="padding-top:26px;"><a href="${best.url}" style="display:inline-block;padding:14px 26px;background:#0a7d32;color:#fff;text-decoration:none;border-radius:6px;font-weight:700;">Buy now</a></div>
+        <div style="color:#999;padding-top:30px;border-top:1px solid #eee;margin-top:26px;">Price ceiling ${money(CONFIG.maxPrice)} · checked continuously</div>
       </div>`,
   });
-  if (error) throw new Error(`Resend error: ${JSON.stringify(error)}`);
 }
 
 async function sendHealthAlert(unhealthy) {
-  const { resend, to } = mailer();
-  const rows = unhealthy
-    .map(
-      (u) =>
-        `<li style="padding-bottom:8px;"><strong>${u.label}</strong> — no successful read in ${u.hours.toFixed(0)}h (${u.error})</li>`
-    )
-    .join('');
-  const { error } = await resend.emails.send({
-    from: 'PS5 Pro Alert <onboarding@resend.dev>',
-    to,
+  const lines = unhealthy.map(
+    (u) => `${u.label} — no successful read in ${u.hours.toFixed(0)}h (${u.error})`
+  );
+  await send({
     subject: 'PS5 Pro monitor — a source stopped responding',
-    html: `
-      <div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;font-size:15px;line-height:1.5;max-width:560px;margin:0 auto;padding:28px;">
+    text: ['The monitor is partly blind:', '', ...lines, '', 'Other sources are still being checked. This warning repeats at most once a day.'].join('\n'),
+    html: `<div style="font-family:sans-serif;font-size:15px;line-height:1.5;padding:28px;max-width:560px;">
         <div style="font-weight:700;color:#b34700;padding-bottom:12px;">The monitor is partly blind</div>
-        <ul style="color:#333;padding-left:18px;">${rows}</ul>
+        <ul style="color:#333;padding-left:18px;">${unhealthy
+          .map((u) => `<li style="padding-bottom:8px;"><strong>${u.label}</strong> — no successful read in ${u.hours.toFixed(0)}h (${u.error})</li>`)
+          .join('')}</ul>
         <div style="color:#666;padding-top:14px;">Other sources are still being checked. This warning repeats at most once a day.</div>
       </div>`,
   });
-  if (error) throw new Error(`Resend error: ${JSON.stringify(error)}`);
+}
+
+// TEST_ALERT=1 sends one clearly-labelled alert so delivery can be proven
+// without waiting for a restock.
+if (process.env.TEST_ALERT === '1') {
+  await sendStockAlert([
+    {
+      retailer: '[TEST] Target',
+      channel: 'This is a test, not a real restock',
+      price: 899.99,
+      url: 'https://www.target.com/p/playstation-5-pro-console/-/A-93620188',
+      note: 'Delivery test of the alert path',
+    },
+  ]);
+  console.log('Test alert sent.');
+  process.exit(0);
 }
 
 run().catch((err) => {
