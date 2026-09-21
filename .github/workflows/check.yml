@@ -12,6 +12,10 @@ on:
         description: 'Check sources but never send email'
         type: boolean
         default: false
+      loop_seconds:
+        description: 'How long this run keeps polling (seconds)'
+        type: string
+        default: '570'
 
 permissions:
   contents: write
@@ -37,6 +41,7 @@ jobs:
           NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
           BESTBUY_API_KEY: ${{ secrets.BESTBUY_API_KEY }}
           DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
+          LOOP_SECONDS: ${{ inputs.loop_seconds || '570' }}
         run: node check.js
 
       - name: Persist state only when something actually changed
