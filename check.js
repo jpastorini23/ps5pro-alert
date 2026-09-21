@@ -1,12 +1,27 @@
 import { readFile, writeFile } from 'node:fs/promises';
+import { existsSync, readFileSync } from 'node:fs';
 import { Resend } from 'resend';
 import { CONFIG } from './config.js';
 import * as target from './sources/target.js';
 import * as psdirect from './sources/psdirect.js';
 import * as bestbuy from './sources/bestbuy.js';
 
-const SOURCES = [target, psdirect, bestbuy];
-const STATE_FILE = new URL('./state.json', import.meta.url);
+// Local runs read credentials from .env; CI passes them as secrets.
+const ENV_FILE = new URL('./.env', import.meta.url);
+if (existsSync(ENV_FILE)) {
+  for (const line of readFileSync(ENV_FILE, 'utf8').split('\n')) {
+    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
+    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+  }
+}
+
+// Target's API refuses datacenter IPs (HTTP 435), so GitHub Actions sets
+// SKIP_SOURCES=target and the Mac covers it. Skipping is explicit rather than
+// inferred, so a real Target outage still raises the health alarm locally.
+const SKIP = (process.env.SKIP_SOURCES ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+const SOURCES = [target, psdirect, bestbuy].filter((s) => !SKIP.includes(s.id));
+// The Mac runner and CI keep separate state so they never fight over the file.
+const STATE_FILE = new URL(process.env.STATE_FILE ?? './state.json', import.meta.url);
 const DRY_RUN = process.env.DRY_RUN === '1';
 const now = () => new Date();
 const iso = (d) => d.toISOString();

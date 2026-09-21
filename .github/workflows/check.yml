@@ -42,6 +42,8 @@ jobs:
           BESTBUY_API_KEY: ${{ secrets.BESTBUY_API_KEY }}
           DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
           LOOP_SECONDS: ${{ inputs.loop_seconds || '570' }}
+          # Target's API returns HTTP 435 to datacenter IPs. The Mac covers Target.
+          SKIP_SOURCES: target
         run: node check.js
 
       - name: Persist state only when something actually changed

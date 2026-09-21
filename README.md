@@ -15,6 +15,19 @@ reports, no heartbeat mail.
 Walmart, Costco, GameStop, Newegg, B&H and Amazon all reject automated
 requests with a bot wall, so they are not covered.
 
+## Where it runs, and why it runs in two places
+
+Target's API answers a home connection but returns **HTTP 435 to datacenter
+IPs**, so GitHub Actions cannot see Target at all. Verified on a real runner.
+
+| Runner | Covers | Uptime |
+|---|---|---|
+| This Mac (launchd, every 10 min) | Target + Sony + Best Buy | Whenever the Mac is awake |
+| GitHub Actions (every 10 min) | Sony + Best Buy | 24/7 |
+
+Target is the source that was seen restocking, so the Mac runner is the
+important one. The two keep separate state files and never conflict.
+
 ## Timing
 
 A restock observed on 2026-09-21 lasted **under one minute**. A plain
@@ -40,12 +53,20 @@ effectively continuous coverage.
 > that owns the Resend account. If step 6 fails, that is the reason — verify a
 > domain, or use the Resend account that owns the destination address.
 
-## Run it locally
+## Run it on this Mac
+
+1. `cp .env.example .env` and fill in the two values.
+2. `./local/install.sh`
+
+That installs a launchd agent that runs every 10 minutes and survives
+reboots. It only runs while the Mac is awake — plug in and set
+**System Settings → Lock Screen → Turn display off** to *Never* if you want
+overnight coverage.
 
 ```bash
-npm install
-npm run dry      # checks every source, prints results, sends nothing
-npm run check    # real run; emails on a find
+tail -f monitor.log                                          # watch it
+launchctl unload ~/Library/LaunchAgents/com.juancruz.ps5pro-alert.plist   # stop it
+npm run dry                                                  # one-off, sends nothing
 ```
 
 ## Tuning
