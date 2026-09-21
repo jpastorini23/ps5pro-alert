@@ -1,0 +1,15 @@
+{
+  "name": "ps5pro-alert",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node check.js",
+    "dry": "DRY_RUN=1 node check.js",
+    "test-email": "node test-email.js"
+  },
+  "dependencies": {
+    "resend": "^4.0.0"
+  },
+  "engines": { "node": ">=20" }
+}

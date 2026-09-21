@@ -1,0 +1,26 @@
+{
+  "offers": {
+    "target:ship": {
+      "hit": false
+    },
+    "target:store:2766": {
+      "hit": false
+    },
+    "target:store:2768": {
+      "hit": false
+    },
+    "target:store:3264": {
+      "hit": false
+    },
+    "psdirect:ship": {
+      "hit": false
+    }
+  },
+  "sources": {
+    "target": {},
+    "psdirect": {},
+    "bestbuy": {
+      "skipped": "BESTBUY_API_KEY not set"
+    }
+  }
+}

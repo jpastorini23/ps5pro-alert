@@ -1,0 +1,53 @@
+name: PS5 Pro stock check
+
+on:
+  # Every 10 minutes, off the congested :00/:05 marks.
+  # Each run then polls continuously for ~9.5 minutes, so coverage is
+  # effectively constant — restock windows have lasted under a minute.
+  schedule:
+    - cron: '3-59/10 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Check sources but never send email'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ps5pro-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install --no-audit --no-fund
+
+      - name: Check stock
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
+          BESTBUY_API_KEY: ${{ secrets.BESTBUY_API_KEY }}
+          DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
+        run: node check.js
+
+      - name: Persist state only when something actually changed
+        if: ${{ !inputs.dry_run }}
+        run: |
+          if ! git diff --quiet state.json; then
+            git config user.name "ps5pro-monitor"
+            git config user.email "ps5pro-monitor@users.noreply.github.com"
+            git add state.json
+            git commit -m "chore: stock state [skip ci]"
+            git push
+          else
+            echo "No state change."
+          fi
