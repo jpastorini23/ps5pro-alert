@@ -16,6 +16,9 @@
     "psdirect:ship": {
       "hit": true,
       "lastAlertAt": "2026-09-21T14:59:10.152Z"
+    },
+    "psdirect:playstation5-pro-console-2-tb": {
+      "hit": false
     }
   },
   "sources": {
