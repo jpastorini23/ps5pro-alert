@@ -8,12 +8,26 @@ reports, no heartbeat mail.
 
 | Source | Channels | Access |
 |---|---|---|
-| Target | Ship to address + pickup at 3 San Francisco stores | Public store API, no key |
+| Target | Ship to a US address + pickup at 16 Bay Area stores | Public store API, no key |
 | PlayStation Direct (Sony) | Ship to a US address | Public page, no key |
 | Best Buy | Ship to address + stores within 25 mi of 94103 | Official Developer API, free key required |
 
-Walmart, Costco, GameStop, Newegg, B&H and Amazon all reject automated
-requests with a bot wall, so they are not covered.
+Not covered, and why — each was tested, not assumed:
+
+| Retailer | Result |
+|---|---|
+| Walmart | "Robot or human?" hold-to-confirm challenge, in a real browser too |
+| GameStop | Cloudflare hard block (403) |
+| Costco | Bot challenge |
+| Newegg, B&H, Adorama | 403 |
+| Amazon | Search page returns no usable listing data |
+| Best Buy (site) | Connection reset even when driven by real Chrome |
+
+Defeating those challenges is out of scope. Best Buy is reachable only
+through its official Developer API, which is why the key matters: the one
+Best Buy in San Francisco is store #187 at 1717 Harrison St.
+
+Everything is anchored on 424 Clay Street, San Francisco 94111.
 
 ## Where it runs, and why it runs in two places
 

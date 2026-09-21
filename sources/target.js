@@ -15,6 +15,7 @@ export const label = 'Target';
 export const minIntervalSeconds = 10;
 
 let cachedProducts = null; // Rediscovered on every deep cycle.
+let deepCount = 0;
 
 function searchUrl(keyword) {
   const q = new URLSearchParams({
@@ -26,7 +27,7 @@ function searchUrl(keyword) {
     offset: '0',
     page: `/s/${keyword}`,
     platform: 'desktop',
-    pricing_store_id: CONFIG.targetStores[0].id,
+    pricing_store_id: CONFIG.targetStoresNear[0].id,
     visitor_id: '0192ABCDEF000000',
   });
   return `https://redsky.target.com/redsky_aggregations/v1/web/plp_search_v2?${q}`;
@@ -80,10 +81,17 @@ async function discover() {
 export async function check({ deep = true } = {}) {
   if (deep || !cachedProducts) cachedProducts = await discover();
 
+  // Near stores every deep cycle; the wider Bay Area list every Nth one.
+  const wide = deep && deepCount % CONFIG.wideEvery === 0;
+  if (deep) deepCount++;
+  const storesForThisCycle = wide
+    ? [...CONFIG.targetStoresNear, ...CONFIG.targetStoresWide]
+    : CONFIG.targetStoresNear;
+
   const offers = [];
   for (const { tcin, title } of cachedProducts) {
     const pdp = `https://www.target.com/p/-/A-${tcin}`;
-    const stores = deep ? CONFIG.targetStores : CONFIG.targetStores.slice(0, 1);
+    const stores = deep ? storesForThisCycle : CONFIG.targetStoresNear.slice(0, 1);
     let price = null;
 
     for (const [i, store] of stores.entries()) {
@@ -111,7 +119,7 @@ export async function check({ deep = true } = {}) {
       const qty = opt?.location_available_to_promise_quantity ?? 0;
       offers.push({
         key: `target:${tcin}:store:${store.id}`,
-        channel: `Pick up in SF — ${store.name}`,
+        channel: `Pick up — ${store.name}`,
         inStock: opt?.order_pickup?.availability_status === 'IN_STOCK',
         price,
         url: pdp,
