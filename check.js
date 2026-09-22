@@ -116,6 +116,7 @@ function healthWarnings(state) {
 }
 
 async function run() {
+  console.log(`--- ${new Date().toLocaleString('sv')} ---`);
   const state = await readState();
   state.offers ??= {};
   state.sources ??= {};

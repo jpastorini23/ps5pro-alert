@@ -94,6 +94,15 @@ reboots. It only runs while the Mac is awake — plug in and set
 **System Settings → Lock Screen → Turn display off** to *Never* if you want
 overnight coverage.
 
+A sleeping Mac stops polling, and launchd cannot wake it. Overnight on
+2026-09-21 that cost ~70% of the expected runs. To hold it awake while
+plugged in:
+
+```bash
+./local/keep-awake.sh        # on
+./local/keep-awake.sh off    # back to normal
+```
+
 ```bash
 tail -f monitor.log                                          # watch it
 launchctl unload ~/Library/LaunchAgents/com.juancruz.ps5pro-alert.plist   # stop it
