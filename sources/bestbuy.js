@@ -50,7 +50,10 @@ export async function check({ deep = true } = {}) {
     });
 
     // Only spend a second call on store stock for a product priced sanely.
-    if (deep && price != null && model && price <= model.maxPrice && p.inStoreAvailability === true) {
+    // The docs are explicit: inStoreAvailability only says the product is
+    // sold in stores, not that any store has it. Per-store truth comes from
+    // the stores endpoint, so ask it whenever the price qualifies.
+    if (deep && price != null && model && price <= model.maxPrice) {
       try {
         const stores = await get(
           `${BASE}/products/${p.sku}/stores.json?postalCode=${CONFIG.zip}` +
@@ -59,7 +62,7 @@ export async function check({ deep = true } = {}) {
         );
         for (const s of (stores?.stores ?? []).slice(0, 4)) {
           offers.push({
-            key: `bestbuy:store:${p.sku}:${s.storeId}`,
+            key: `bestbuy:store:${p.sku}:${s.storeID}`,
             channel: `Store pickup — ${s.name ?? s.city}`,
             inStock: true,
             price,
