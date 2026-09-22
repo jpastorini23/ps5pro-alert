@@ -1,4 +1,5 @@
 import { get } from './http.js';
+import { classify } from '../models.js';
 
 const ORIGIN = 'https://direct.playstation.com';
 const LISTING = `${ORIGIN}/en-us/consoles`;
@@ -14,14 +15,16 @@ export const minIntervalSeconds = 60;
 
 let cachedPages = null;
 
-// Any PS5 Pro console or bundle Sony lists, discovered rather than hardcoded.
+// Every console Sony lists that matches a watched model, discovered rather
+// than hardcoded. The slug carries enough to classify before fetching.
 async function discover() {
   const html = await get(LISTING);
   const links = new Set();
   for (const m of html.matchAll(/href="(\/en-us\/(?:buy-consoles|bundles)\/[^"]+)"/g)) {
-    if (/pro/i.test(m[1])) links.add(ORIGIN + m[1]);
+    const slug = m[1].split('/').pop().replace(/-/g, ' ');
+    if (classify(slug)) links.add(ORIGIN + m[1]);
   }
-  if (links.size === 0) throw new Error('no PS5 Pro listing found on the consoles page');
+  if (links.size === 0) throw new Error('no watched console found on the consoles page');
   return [...links];
 }
 
@@ -36,18 +39,20 @@ async function readProduct(url) {
 
   const price = html.match(/productPrice:"([\d.]+)"/);
   const name = html.match(/<title>\s*([^<|]+)/);
+  const title = (name ? name[1] : url.split('/').pop().replace(/-/g, ' ')).trim();
 
-  if (/refurb|renew|pre-?owned/i.test(html.match(/<title>[^<]*/)?.[0] ?? '')) {
-    return null; // Sony occasionally lists refurbished units; he wants new only.
-  }
+  // Classify on the real product title, which is more reliable than the slug.
+  const model = classify(title);
+  if (!model) return null;
 
   return {
     key: `psdirect:${url.split('/').pop()}`,
     channel: 'Sony official store',
     inStock: /^InStock$/i.test(avail[1]),
     price: price ? Number(price[1]) : null,
+    model,
     url,
-    note: `${(name ? name[1].trim() : 'PS5 Pro').slice(0, 60)} · ships to a US address`,
+    note: `${title.slice(0, 60)} · ships to a US address`,
   };
 }
 

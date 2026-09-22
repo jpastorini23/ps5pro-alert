@@ -1,5 +1,6 @@
 import { get } from './http.js';
 import { CONFIG } from '../config.js';
+import { classify } from '../models.js';
 
 // Best Buy blocks non-browser clients on www.bestbuy.com, so this uses their
 // official free Developer API instead. Without a key the source reports
@@ -10,11 +11,6 @@ export const id = 'bestbuy';
 export const label = 'Best Buy';
 export const minIntervalSeconds = 60;
 
-// Matches the console itself, not controllers, games or accessories.
-const NAME_RE = /playstation\W*5\W*pro/i;
-const EXCLUDE_RE = /(controller|headset|cover|game|remote|stand|charging|bundle case|skin)/i;
-// New units only — no refurbished, open-box, pre-owned or renewed stock.
-const NOT_NEW_RE = /(refurb|renew|pre-?owned|open[- ]box|used|geek squad)/i;
 
 export async function check({ deep = true } = {}) {
   const apiKey = process.env.BESTBUY_API_KEY;
@@ -30,8 +26,8 @@ export async function check({ deep = true } = {}) {
   // Best Buy lists marketplace resellers next to its own stock, often far
   // above MSRP. Only Best Buy's own offer is ever alerted on.
   const products = (data?.products ?? []).filter((p) => {
-    if (!NAME_RE.test(p.name ?? '') || EXCLUDE_RE.test(p.name ?? '')) return false;
-    if (NOT_NEW_RE.test(p.name ?? '') || (p.condition && !/new/i.test(p.condition))) return false;
+    if (!classify(p.name)) return false;
+    if (p.condition && !/new/i.test(p.condition)) return false;
     if (p.marketplace === true) return false;
     const seller = p.sellerName ?? p.soldBy ?? '';
     if (seller && !/^best\s*buy$/i.test(seller.trim())) return false;
@@ -42,17 +38,19 @@ export async function check({ deep = true } = {}) {
   const offers = [];
   for (const p of products) {
     const price = p.salePrice ?? p.regularPrice ?? null;
+    const model = classify(p.name);
     offers.push({
       key: `bestbuy:ship:${p.sku}`,
       channel: 'Ship to address',
       inStock: p.onlineAvailability === true,
       price,
+      model,
       url: p.addToCartUrl || p.url,
       note: p.name,
     });
 
     // Only spend a second call on store stock for a product priced sanely.
-    if (deep && price != null && price <= CONFIG.maxPrice && p.inStoreAvailability === true) {
+    if (deep && price != null && model && price <= model.maxPrice && p.inStoreAvailability === true) {
       try {
         const stores = await get(
           `${BASE}/products/${p.sku}/stores.json?postalCode=${CONFIG.zip}` +
@@ -65,6 +63,7 @@ export async function check({ deep = true } = {}) {
             channel: `Store pickup — ${s.name ?? s.city}`,
             inStock: true,
             price,
+            model,
             url: p.url,
             note: `${s.address ?? ''} ${s.city ?? ''}`.trim(),
           });

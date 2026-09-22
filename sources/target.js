@@ -1,16 +1,17 @@
 import { get } from './http.js';
 import { CONFIG } from '../config.js';
+import { classify } from '../models.js';
 
 // Target's public store API. Key is the one target.com ships to the browser.
 const KEY = '9f36aeafbe60771e321a7cc95a78140772ab3e96';
 
 // Any PS5 Pro console or bundle counts. Accessories do not, and neither
 // does anything sold by a Target Plus partner — only Target's own stock.
-const KEYWORDS = ['playstation 5 pro console', 'ps5 pro bundle'];
-const MATCH = /5\s*pro/i;
-const EXCLUDE = /(controller|cover|headset|game|stand|case|remote|charging|skin|faceplate)/i;
-// New units only — no refurbished, open-box, pre-owned or renewed stock.
-const NOT_NEW = /(refurb|renew|pre-?owned|open[- ]box|used|certified)/i;
+const KEYWORDS = [
+  'playstation 5 pro console',
+  'ps5 pro bundle',
+  'playstation 5 digital edition console',
+];
 
 export const id = 'target';
 export const label = 'Target';
@@ -83,16 +84,17 @@ async function discover() {
       const title = (p.item?.product_description?.title ?? '')
         .replace(/&#\d+;|®|™/g, '')
         .trim();
-      if (!MATCH.test(title) || EXCLUDE.test(title) || NOT_NEW.test(title)) continue;
+      const model = classify(title);
+      if (!model) continue;
       if (isReseller(p)) {
         console.log(`  (skipping reseller listing: ${title})`);
         continue;
       }
-      found.set(p.tcin, title);
+      found.set(p.tcin, { title, model });
     }
   }
-  if (found.size === 0) throw new Error('no PS5 Pro listing found in search');
-  return [...found].map(([tcin, title]) => ({ tcin, title }));
+  if (found.size === 0) throw new Error('no watched console found in search');
+  return [...found].map(([tcin, v]) => ({ tcin, title: v.title, model: v.model }));
 }
 
 export async function check({ deep = true } = {}) {
@@ -106,7 +108,7 @@ export async function check({ deep = true } = {}) {
     : CONFIG.targetStoresNear;
 
   const offers = [];
-  for (const { tcin, title } of cachedProducts) {
+  for (const { tcin, title, model } of cachedProducts) {
     const pdp = `https://www.target.com/p/-/A-${tcin}`;
     const stores = deep ? storesForThisCycle : CONFIG.targetStoresNear.slice(0, 1);
     let price = null;
@@ -126,6 +128,7 @@ export async function check({ deep = true } = {}) {
           channel: 'Ship to a US address',
           inStock: f.shipping_options?.availability_status === 'IN_STOCK',
           price,
+          model,
           url: pdp,
           note: title,
         });
@@ -139,6 +142,7 @@ export async function check({ deep = true } = {}) {
         channel: `Pick up — ${store.name}`,
         inStock: opt?.order_pickup?.availability_status === 'IN_STOCK',
         price,
+        model,
         url: pdp,
         note: `${title} · ${store.address}${qty ? ` · ${qty} in store` : ''}`,
       });

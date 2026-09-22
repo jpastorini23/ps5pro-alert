@@ -6,10 +6,25 @@
 // US address or can be picked up in San Francisco.
 
 export const CONFIG = {
-  // Alert only at or below this price. MSRP is $899.99, and he only wants
-  // it at or under list — anything above is a reseller or a markup.
-  maxPrice: Number(process.env.MAX_PRICE ?? 900),
-
+  // The only two consoles worth an alert, each with its own ceiling.
+  // Anything else — the disc Slim, bundles above the ceiling, resellers —
+  // is ignored. The disc version is deliberately excluded: he has no use
+  // for a drive.
+  models: [
+    {
+      id: 'pro',
+      label: 'PS5 Pro',
+      match: /5\s*pro/i,
+      maxPrice: Number(process.env.MAX_PRICE_PRO ?? 900),
+    },
+    {
+      id: 'digital',
+      label: 'PS5 Digital Edition',
+      match: /digital/i,
+      exclude: /pro\b/i,
+      maxPrice: Number(process.env.MAX_PRICE_DIGITAL ?? 650),
+    },
+  ],
 
   // Everything is anchored on the hotel: 424 Clay St, Financial District.
   // Distances below are from that address.

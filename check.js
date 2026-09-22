@@ -2,6 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import { send, transport, notifyDesktop } from './mailer.js';
 import { CONFIG } from './config.js';
+import { withinCeiling } from './models.js';
 import * as target from './sources/target.js';
 import * as psdirect from './sources/psdirect.js';
 import * as bestbuy from './sources/bestbuy.js';
@@ -79,13 +80,12 @@ async function cycle(state, deep) {
     }
 
     for (const offer of offers) {
-      const priceOk = offer.price != null && offer.price <= CONFIG.maxPrice;
-      const hit = Boolean(offer.inStock && priceOk);
+      const hit = Boolean(offer.inStock && withinCeiling(offer.model, offer.price));
       const prev = state.offers[offer.key] ?? {};
       const cooledDown = hoursSince(prev.lastAlertAt) * 60 > CONFIG.alertCooldownMinutes;
 
       if (hit && !prev.hit) {
-        console.log(`  HIT ${source.label} · ${offer.channel} · ${offer.price}`);
+        console.log(`  HIT ${offer.model.label} · ${source.label} · ${offer.channel} · $${offer.price}`);
         if (cooledDown) {
           hits.push({ ...offer, retailer: source.label });
           prev.lastAlertAt = iso(now());
@@ -155,14 +155,30 @@ async function run() {
 
 const money = (n) => `$${Number(n).toFixed(2)}`;
 
+// A widely-available console can hit a dozen stores at once. Show the few
+// that matter and count the rest, so the mail stays readable.
+function summarise(hits) {
+  const shown = [];
+  const extra = new Map();
+  for (const model of new Set(hits.map((h) => h.model.label))) {
+    const group = hits
+      .filter((h) => h.model.label === model)
+      .sort((a, b) => a.price - b.price || (/Ship/i.test(b.channel) ? 1 : -1));
+    shown.push(...group.slice(0, 3));
+    if (group.length > 3) extra.set(model, group.length - 3);
+  }
+  return { shown, extra };
+}
+
 export async function sendStockAlert(hits) {
-  const best = hits[0];
+  const { shown, extra } = summarise(hits);
+  const best = shown[0];
   const text = [
-    'PS5 Pro is available. Stock can disappear in minutes.',
+    `${best.model.label} is available. Stock can disappear in minutes.`,
     '',
-    ...hits.map((h) =>
+    ...shown.map((h) =>
       [
-        `${h.retailer} — ${money(h.price)}`,
+        `${h.model.label} — ${h.retailer} — ${money(h.price)}`,
         `  ${h.channel}`,
         h.note ? `  ${h.note}` : null,
         `  ${h.url}`,
@@ -170,37 +186,44 @@ export async function sendStockAlert(hits) {
         .filter(Boolean)
         .join('\n')
     ),
+    ...[...extra].map(([label, n]) => `+${n} more ${label} locations`),
     '',
-    `Price ceiling ${money(CONFIG.maxPrice)}.`,
+    `Ceiling ${money(best.model.maxPrice)}.`,
   ].join('\n');
 
-  const rows = hits
+  const rows = shown
     .map(
       (h) => `
       <tr><td style="padding:14px 0;border-bottom:1px solid #eee;">
-        <div style="font-weight:700;color:#111;">${h.retailer} — ${money(h.price)}</div>
+        <div style="font-weight:700;color:#111;">${h.model.label} — ${h.retailer} — ${money(h.price)}</div>
         <div style="color:#444;padding-top:4px;">${h.channel}</div>
         ${h.note ? `<div style="color:#888;padding-top:4px;">${h.note}</div>` : ''}
         <div style="padding-top:10px;"><a href="${h.url}" style="color:#0b5cff;font-weight:700;">Open product page →</a></div>
       </td></tr>`
     )
-    .join('');
+    .join('') +
+    [...extra]
+      .map(
+        ([label, n]) =>
+          `<tr><td style="padding:10px 0;color:#888;">+${n} more ${label} locations</td></tr>`
+      )
+      .join('');
 
   await notifyDesktop(
-    `PS5 Pro in stock — ${best.retailer}`,
+    `${best.model.label} in stock — ${best.retailer}`,
     `${money(best.price)} · ${best.channel}`
   );
 
   await send({
-    subject: `PS5 Pro in stock — ${best.retailer} ${money(best.price)}`,
+    subject: `${best.model.label} in stock — ${best.retailer} ${money(best.price)}`,
     text,
     html: `
       <div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;font-size:15px;line-height:1.5;max-width:560px;margin:0 auto;padding:28px;">
-        <div style="font-weight:700;color:#0a7d32;padding-bottom:6px;">PS5 Pro available</div>
+        <div style="font-weight:700;color:#0a7d32;padding-bottom:6px;">${best.model.label} available</div>
         <div style="color:#444;padding-bottom:18px;">Stock can disappear in minutes.</div>
         <table style="width:100%;border-collapse:collapse;">${rows}</table>
         <div style="padding-top:26px;"><a href="${best.url}" style="display:inline-block;padding:14px 26px;background:#0a7d32;color:#fff;text-decoration:none;border-radius:6px;font-weight:700;">Buy now</a></div>
-        <div style="color:#999;padding-top:30px;border-top:1px solid #eee;margin-top:26px;">Price ceiling ${money(CONFIG.maxPrice)} · checked continuously</div>
+        <div style="color:#999;padding-top:30px;border-top:1px solid #eee;margin-top:26px;">Ceiling ${money(best.model.maxPrice)} · checked continuously</div>
       </div>`,
   });
 }
@@ -228,6 +251,7 @@ if (process.env.TEST_ALERT === '1') {
   await sendStockAlert([
     {
       retailer: '[TEST] Target',
+      model: CONFIG.models[0],
       channel: 'This is a test, not a real restock',
       price: 899.99,
       url: 'https://www.target.com/p/playstation-5-pro-console/-/A-93620188',
