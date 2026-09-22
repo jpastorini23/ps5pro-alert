@@ -1,15 +1,12 @@
 # PS5 stock alert
 
-Watches two consoles at US retailers and emails **only** when one is
-actually buyable at or below its own ceiling. Silent otherwise — no run
-reports, no heartbeat mail.
+Watches the PlayStation 5 Pro at US retailers and emails **only** when it is
+actually buyable at or below $900. Silent otherwise — no run reports, no
+heartbeat mail.
 
-| Model | Ceiling | Why |
-|---|---|---|
-| PS5 Pro | $900 | MSRP is $899.99 |
-| PS5 Digital Edition | $650 | MSRP is $599.99, bundles allowed up to the ceiling |
-
-The disc Slim is deliberately not watched.
+The Digital Edition and the disc Slim are deliberately not watched: both sit
+at MSRP in stock almost everywhere, so alerting on them is noise. The Pro is
+the only one in short supply.
 
 ## What it watches
 
@@ -110,7 +107,6 @@ Everything lives in `config.js` or is overridable by environment variable.
 | Variable | Default | Meaning |
 |---|---|---|
 | `MAX_PRICE_PRO` | `900` | Ceiling for the PS5 Pro |
-| `MAX_PRICE_DIGITAL` | `650` | Ceiling for the PS5 Digital Edition |
 | `POLL_SECONDS` | `30` | Seconds between polls inside one run |
 | `LOOP_SECONDS` | `570` | How long one run keeps polling |
 | `DEEP_EVERY` | `4` | Check store-level stock every Nth poll |

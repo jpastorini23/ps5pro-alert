@@ -6,23 +6,14 @@
 // US address or can be picked up in San Francisco.
 
 export const CONFIG = {
-  // The only two consoles worth an alert, each with its own ceiling.
-  // Anything else — the disc Slim, bundles above the ceiling, resellers —
-  // is ignored. The disc version is deliberately excluded: he has no use
-  // for a drive.
+  // Only the PS5 Pro is worth an alert. The Digital Edition and the disc
+  // Slim are both widely available at MSRP, so watching them is noise.
   models: [
     {
       id: 'pro',
       label: 'PS5 Pro',
       match: /5\s*pro/i,
       maxPrice: Number(process.env.MAX_PRICE_PRO ?? 900),
-    },
-    {
-      id: 'digital',
-      label: 'PS5 Digital Edition',
-      match: /digital/i,
-      exclude: /pro\b/i,
-      maxPrice: Number(process.env.MAX_PRICE_DIGITAL ?? 650),
     },
   ],
 
