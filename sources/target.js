@@ -123,6 +123,13 @@ export async function check({ deep = true } = {}) {
 
       // Shipping is store-independent — record it once per product.
       if (i === 0) {
+        // Real stock comes with a concrete shipping service and a delivery
+        // date; an empty services list is the tell that nothing is sellable.
+        // Carrying it into the alert makes each one self-evidencing.
+        const svc = f.shipping_options?.services?.[0];
+        const proof = svc
+          ? `delivery by ${svc.max_delivery_date ?? svc.min_delivery_date}`
+          : null;
         offers.push({
           key: `target:${tcin}:ship`,
           channel: 'Ship to a US address',
@@ -130,7 +137,7 @@ export async function check({ deep = true } = {}) {
           price,
           model,
           url: pdp,
-          note: title,
+          note: proof ? `${title} · ${proof}` : title,
         });
       }
       if (!deep) break;
