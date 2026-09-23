@@ -56,6 +56,18 @@ export async function notifyDesktop(title, message) {
   }
 }
 
+// The window is measured in seconds, so the product page is opened the
+// instant stock is seen — no waiting for him to read the mail and click.
+// Opening a page is all this does; nothing is added to a cart or bought.
+export async function openProductPage(url) {
+  if (process.platform !== 'darwin' || process.env.NO_AUTO_OPEN === '1') return;
+  try {
+    await run('open', [url]);
+  } catch {
+    // Never let a failed open block the alert.
+  }
+}
+
 export async function send({ subject, text, html }) {
   const to = process.env.NOTIFY_EMAIL;
   if (!to) throw new Error('NOTIFY_EMAIL not set');

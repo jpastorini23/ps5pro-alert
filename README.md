@@ -131,6 +131,20 @@ Everything lives in `config.js` or is overridable by environment variable.
 
 To go back to one check every 10 minutes, set `LOOP_SECONDS=1`.
 
+## What happens the moment stock is seen
+
+In this order, fastest signal first:
+
+1. The product page opens in the default browser.
+2. A desktop banner fires with a sound.
+3. The email goes out, carrying the delivery date Target returned as proof
+   the offer was real.
+
+It never adds to a cart and never buys. Automated checkout is off the table:
+it needs per-purchase consent, and it means driving a retailer's bot
+protection, which risks the account. Set `NO_AUTO_OPEN=1` to stop the page
+from opening.
+
 ## Failure behaviour
 
 If a source stops responding for more than 8 hours the monitor sends **one**

@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
-import { send, transport, notifyDesktop } from './mailer.js';
+import { send, transport, notifyDesktop, openProductPage } from './mailer.js';
 import { CONFIG } from './config.js';
 import { withinCeiling } from './models.js';
 import * as target from './sources/target.js';
@@ -209,6 +209,9 @@ export async function sendStockAlert(hits) {
           `<tr><td style="padding:10px 0;color:#888;">+${n} more ${label} locations</td></tr>`
       )
       .join('');
+
+  // Page first, then the banner, then the mail — fastest signal first.
+  await openProductPage(best.url);
 
   await notifyDesktop(
     `${best.model.label} in stock — ${best.retailer}`,
