@@ -27,9 +27,11 @@ cat > "$PLIST" <<PLISTEOF
   <key>EnvironmentVariables</key>
   <dict>
     <key>STATE_FILE</key><string>./state.local.json</string>
+    <key>LOOP_SECONDS</key><string>3600</string>
   </dict>
-  <key>StartInterval</key><integer>600</integer>
   <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>10</integer>
   <key>StandardOutPath</key><string>$REPO/monitor.log</string>
   <key>StandardErrorPath</key><string>$REPO/monitor.log</string>
 </dict>
@@ -38,6 +40,6 @@ PLISTEOF
 
 launchctl unload "$PLIST" 2>/dev/null || true
 launchctl load "$PLIST"
-echo "Installed. Watching every 10 minutes."
+echo "Installed. Polling continuously; launchd restarts it if it dies."
 echo "Log:    tail -f $REPO/monitor.log"
 echo "Stop:   launchctl unload $PLIST"

@@ -61,10 +61,17 @@ the ceiling:
 
 ## Timing
 
-A restock observed on 2026-09-21 lasted **under one minute**. A plain
-10-minute check would have missed it. So each scheduled run polls in a loop
-for ~9.5 minutes (every 30s) and exits before the next one starts, giving
-effectively continuous coverage.
+A restock observed on 2026-09-21 lasted **under one minute**, so a periodic
+check is the wrong shape: the process polls in a loop instead, every 10s for
+Target and every 60s for the others.
+
+The Mac runner is a `KeepAlive` agent, not an interval one. An earlier
+version used `StartInterval 600` with a 9.5-minute loop, which left a
+~10-minute dead gap between runs — launchd will not start the next run until
+the current one exits, and only then starts counting the interval. Measured
+on 2026-09-23: runs at 11:19, 11:38 and 11:58, roughly half the wall clock
+uncovered. `KeepAlive` restarts the process the moment it exits, so coverage
+is continuous.
 
 ## Setup
 
