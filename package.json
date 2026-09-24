@@ -9,7 +9,6 @@
     "test-email": "node test-email.js"
   },
   "dependencies": {
-    "playwright": "^1.63.0",
     "resend": "^4.0.0"
   },
   "engines": {
