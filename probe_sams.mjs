@@ -1,49 +1,40 @@
 import { chromium } from 'playwright';
 
-const URLS = [
-  'https://www.samsclub.com/ip/playstation-5-pro-console/13940750257',
-  'https://www.samsclub.com/ip/playstation-5-pro-console-2-tb/18717057017',
-];
+const URL = 'https://www.samsclub.com/ip/playstation-5-pro-console/13940750257';
 
 const browser = await chromium.launch({ channel: 'chrome', headless: false });
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 const page = await ctx.newPage();
+const t0 = Date.now();
+let status = null;
+page.on('response', r => { if (r.url() === URL || r.url().startsWith(URL)) status = r.status(); });
+await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 45000 });
+await page.waitForTimeout(6000);
 
-const apiCalls = [];
-page.on('response', async (r) => {
-  const u = r.url();
-  if (/\/api\/|graphql|\.json/.test(u) && !/\.(png|jpg|svg|woff|css|js)(\?|$)/.test(u)) {
-    apiCalls.push(`${r.status()} ${u.slice(0, 160)}`);
-  }
+const out = await page.evaluate(() => {
+  const blocked = /are-you-human|blocked|captcha/i.test(location.href);
+  const lds = [...document.querySelectorAll('script[type="application/ld+json"]')]
+    .map(s => { try { return JSON.parse(s.textContent); } catch { return null; } })
+    .filter(Boolean);
+  const types = lds.map(x => Array.isArray(x) ? x.map(y=>y['@type']) : x['@type']);
+  const p = lds.find(x => x && x['@type'] === 'Product');
+  const txt = document.body ? document.body.innerText : '';
+  const i = txt.indexOf('How do you want your item');
+  return {
+    url: location.href,
+    blocked,
+    title: document.title,
+    ldCount: lds.length,
+    ldTypes: types,
+    product: p || null,
+    availability: p?.offers?.[0]?.availability ?? p?.offers?.availability ?? null,
+    fulfilSnippet: i >= 0 ? txt.slice(i, i + 320) : null,
+    textLen: txt.length,
+    textHead: txt.slice(0, 900),
+    sellerHits: txt.match(/sold\s+(and shipped\s+)?by[^\n]{0,60}/gi) || [],
+  };
 });
-
-for (const url of URLS) {
-  console.log('\n===== ' + url);
-  try {
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
-    await page.waitForTimeout(6000);
-    const info = await page.evaluate(() => {
-      const out = { url: location.href, title: document.title };
-      // schema.org JSON-LD
-      out.ld = [...document.querySelectorAll('script[type="application/ld+json"]')]
-        .map(s => s.textContent.slice(0, 1200));
-      // any availability meta
-      out.metaAvail = [...document.querySelectorAll('[itemprop="availability"], meta[property*="availability"]')]
-        .map(e => e.getAttribute('href') || e.getAttribute('content') || e.textContent);
-      // next.js / preloaded state blobs
-      out.blobs = [...document.querySelectorAll('script[id],script[type="application/json"]')]
-        .map(s => ({ id: s.id, type: s.type, len: (s.textContent||'').length }))
-        .filter(b => b.len > 200);
-      out.bodySnippet = (document.body.innerText || '').slice(0, 900);
-      return out;
-    });
-    console.log(JSON.stringify(info, null, 2).slice(0, 4000));
-  } catch (e) {
-    console.log('ERR ' + e.message);
-  }
-}
-
-console.log('\n===== API-ish responses seen:');
-console.log([...new Set(apiCalls)].join('\n').slice(0, 4000));
-
+out.httpStatus = status;
+out.elapsedMs = Date.now() - t0;
+console.log(JSON.stringify(out, null, 2));
 await browser.close();

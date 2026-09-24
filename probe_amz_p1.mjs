@@ -1,0 +1,33 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch({ channel: 'chrome', headless: true });
+const ctx = await b.newContext({ locale: 'en-US', timezoneId: 'America/Los_Angeles' });
+const p = await ctx.newPage();
+const netlog = [];
+p.on('request', r => { if (/glow|address-change|aodAjax/i.test(r.url())) netlog.push(r.method()+' '+r.url().slice(0,140)); });
+await p.goto('https://www.amazon.com/dp/B0DSLWLDK5', { waitUntil: 'domcontentloaded' });
+await p.waitForTimeout(2500);
+const title = await p.title();
+const glow0 = await p.$eval('#glow-ingress-line2', e=>e.textContent.trim()).catch(()=>'(no glow)');
+console.log('TITLE:', title);
+console.log('GLOW_BEFORE:', JSON.stringify(glow0));
+try {
+  await p.click('#nav-global-location-popover-link');
+  await p.waitForSelector('#GLUXZipUpdateInput', { state: 'visible', timeout: 20000 });
+  await p.waitForTimeout(1500);
+  await p.fill('#GLUXZipUpdateInput', '94111');
+  const btn = await p.$('#GLUXZipUpdate input');
+  console.log('ZIPBTN_FOUND:', !!btn);
+  await btn.click();
+  await p.waitForTimeout(4000);
+  const done = await p.$('button[name=glowDoneButton], #GLUXConfirmClose');
+  console.log('DONEBTN_FOUND:', !!done);
+  if (done) await done.click().catch(()=>{});
+  await p.waitForTimeout(2500);
+} catch (e) { console.log('ZIPFLOW_ERROR:', e.message.slice(0,200)); }
+await p.goto('https://www.amazon.com/dp/B0DSLWLDK5', { waitUntil: 'domcontentloaded' });
+await p.waitForTimeout(2500);
+const glow1 = await p.$eval('#glow-ingress-line2', e=>e.textContent.trim()).catch(()=>'(no glow)');
+console.log('GLOW_AFTER:', JSON.stringify(glow1));
+await ctx.storageState({ path: 'amz_state.json' });
+console.log('NETLOG:'); netlog.slice(0,12).forEach(l=>console.log('  ',l));
+await b.close();
