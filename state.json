@@ -19,6 +19,9 @@
     },
     "psdirect:playstation5-pro-console-2-tb": {
       "hit": false
+    },
+    "amazon:B0DSLVJ994": {
+      "hit": false
     }
   },
   "sources": {
@@ -26,6 +29,7 @@
     "psdirect": {},
     "bestbuy": {
       "skipped": "BESTBUY_API_KEY not set"
-    }
+    },
+    "amazon": {}
   }
 }
