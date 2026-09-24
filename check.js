@@ -25,6 +25,7 @@ const SOURCES = [target, psdirect, bestbuy].filter((s) => !SKIP.includes(s.id));
 const STATE_FILE = new URL(process.env.STATE_FILE ?? './state.json', import.meta.url);
 const DRY_RUN = process.env.DRY_RUN === '1';
 const now = () => new Date();
+const clock = () => new Date().toLocaleTimeString('en-GB');
 const iso = (d) => d.toISOString();
 const hoursSince = (t) => (t ? (Date.now() - new Date(t)) / 3.6e6 : Infinity);
 
@@ -85,13 +86,24 @@ async function cycle(state, deep) {
       const cooledDown = hoursSince(prev.lastAlertAt) * 60 > CONFIG.alertCooldownMinutes;
 
       if (hit && !prev.hit) {
-        console.log(`  HIT ${offer.model.label} · ${source.label} · ${offer.channel} · $${offer.price}`);
+        prev.openedAt = Date.now();
+        console.log(
+          `  ${clock()}  HIT ${offer.model.label} · ${source.label} · ` +
+            `${offer.channel} · $${offer.price}`
+        );
         if (cooledDown) {
           hits.push({ ...offer, retailer: source.label });
           prev.lastAlertAt = iso(now());
         } else {
           console.log('       (within cooldown, not emailing)');
         }
+      }
+      // Log the close too, with how long the window stayed open. Without
+      // this there is no way to know whether a miss was seconds or minutes.
+      if (!hit && prev.hit && prev.openedAt) {
+        const secs = Math.round((Date.now() - prev.openedAt) / 1000);
+        console.log(`  ${clock()}  CLOSED after ${secs}s · ${offer.channel}`);
+        delete prev.openedAt;
       }
       prev.hit = hit;
       state.offers[offer.key] = prev;
