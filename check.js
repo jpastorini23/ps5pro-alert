@@ -6,6 +6,7 @@ import { withinCeiling } from './models.js';
 import * as target from './sources/target.js';
 import * as psdirect from './sources/psdirect.js';
 import * as bestbuy from './sources/bestbuy.js';
+import * as amazon from './sources/amazon.js';
 
 // Local runs read credentials from .env; CI passes them as secrets.
 const ENV_FILE = new URL('./.env', import.meta.url);
@@ -20,7 +21,7 @@ if (existsSync(ENV_FILE)) {
 // SKIP_SOURCES=target and the Mac covers it. Skipping is explicit rather than
 // inferred, so a real Target outage still raises the health alarm locally.
 const SKIP = (process.env.SKIP_SOURCES ?? '').split(',').map((x) => x.trim()).filter(Boolean);
-const SOURCES = [target, psdirect, bestbuy].filter((s) => !SKIP.includes(s.id));
+const SOURCES = [target, psdirect, bestbuy, amazon].filter((s) => !SKIP.includes(s.id));
 // The Mac runner and CI keep separate state so they never fight over the file.
 const STATE_FILE = new URL(process.env.STATE_FILE ?? './state.json', import.meta.url);
 const DRY_RUN = process.env.DRY_RUN === '1';
