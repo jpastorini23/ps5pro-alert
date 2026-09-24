@@ -47,6 +47,7 @@ const lastPolled = new Map();
 // One pass over every source. Returns the offers that just became buyable.
 async function cycle(state, deep) {
   const hits = [];
+  const closes = [];
 
   for (const source of SOURCES) {
     const s = (state.sources[source.id] ??= {});
@@ -94,6 +95,7 @@ async function cycle(state, deep) {
         if (cooledDown) {
           hits.push({ ...offer, retailer: source.label });
           prev.lastAlertAt = iso(now());
+          prev.alerted = true;
         } else {
           console.log('       (within cooldown, not emailing)');
         }
@@ -103,13 +105,25 @@ async function cycle(state, deep) {
       if (!hit && prev.hit && prev.openedAt) {
         const secs = Math.round((Date.now() - prev.openedAt) / 1000);
         console.log(`  ${clock()}  CLOSED after ${secs}s · ${offer.channel}`);
+        // He reads the mail later, so the alert alone cannot tell him whether
+        // it is still worth trying. A close notice, sent only for windows he
+        // was actually alerted about, answers that without him checking.
+        if (prev.alerted) {
+          closes.push({
+            ...offer,
+            retailer: source.label,
+            secs,
+            openedAt: new Date(prev.openedAt).toLocaleTimeString('en-GB'),
+          });
+        }
         delete prev.openedAt;
+        delete prev.alerted;
       }
       prev.hit = hit;
       state.offers[offer.key] = prev;
     }
   }
-  return hits;
+  return { hits, closes };
 }
 
 // Sources that have been failing long enough to warrant one warning email.
@@ -139,7 +153,7 @@ async function run() {
 
   do {
     const deep = n % DEEP_EVERY === 0;
-    const hits = await cycle(state, deep);
+    const { hits, closes } = await cycle(state, deep);
     if (hits.length) {
       alerts += hits.length;
       console.log(`  -> emailing ${hits.length} offer(s)`);
@@ -149,6 +163,13 @@ async function run() {
         } catch (err) {
           console.error('  ! email failed:', err.message);
         }
+      }
+    }
+    if (closes.length && !DRY_RUN) {
+      try {
+        await sendCloseNotice(closes);
+      } catch (err) {
+        console.error('  ! close notice failed:', err.message);
       }
     }
     n++;
@@ -240,6 +261,42 @@ export async function sendStockAlert(hits) {
         <table style="width:100%;border-collapse:collapse;">${rows}</table>
         <div style="padding-top:26px;"><a href="${best.url}" style="display:inline-block;padding:14px 26px;background:#0a7d32;color:#fff;text-decoration:none;border-radius:6px;font-weight:700;">Buy now</a></div>
         <div style="color:#999;padding-top:30px;border-top:1px solid #eee;margin-top:26px;">Ceiling ${money(best.model.maxPrice)} · checked continuously</div>
+      </div>`,
+  });
+}
+
+// Sent right after a window he was alerted about closes, so reading the
+// mail late still tells him whether there is any point in trying.
+async function sendCloseNotice(closes) {
+  const c = closes[0];
+  const lines = closes.map(
+    (x) =>
+      `${x.model.label} — ${x.retailer} — ${x.channel}\n` +
+      `  opened ${x.openedAt}, gone after ${x.secs}s`
+  );
+
+  await send({
+    subject: `GONE after ${c.secs}s — ${c.model.label} ${c.retailer}`,
+    text: [
+      'That window has closed. Nothing to do on this one.',
+      '',
+      ...lines,
+      '',
+      'If you are reading the alert above this one, it is already over.',
+    ].join('\n'),
+    html: `
+      <div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;font-size:15px;line-height:1.5;max-width:560px;margin:0 auto;padding:28px;">
+        <div style="font-weight:700;color:#8a8a8a;padding-bottom:6px;">Window closed — nothing to do</div>
+        <table style="width:100%;border-collapse:collapse;">
+          ${closes
+            .map(
+              (x) => `<tr><td style="padding:12px 0;border-bottom:1px solid #eee;">
+              <div style="color:#555;">${x.model.label} — ${x.retailer} — ${x.channel}</div>
+              <div style="color:#999;padding-top:4px;">opened ${x.openedAt} · gone after <strong>${x.secs}s</strong></div>
+            </td></tr>`
+            )
+            .join('')}
+        </table>
       </div>`,
   });
 }

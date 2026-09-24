@@ -137,8 +137,10 @@ In this order, fastest signal first:
 
 1. The product page opens in the default browser.
 2. A desktop banner fires with a sound.
-3. The email goes out, carrying the delivery date Target returned as proof
-   the offer was real.
+3. The email goes out, carrying the delivery date the retailer returned as
+   proof the offer was real.
+4. When that window closes, a second email says so and how long it lasted, so
+   reading the first one hours later still tells you whether it is worth trying.
 
 It never adds to a cart and never buys. Automated checkout is off the table:
 it needs per-purchase consent, and it means driving a retailer's bot
