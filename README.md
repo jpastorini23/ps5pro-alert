@@ -12,7 +12,8 @@ the only one in short supply.
 
 | Source | Channels | Access |
 |---|---|---|
-| Target | Ship to a US address + pickup at 16 Bay Area stores | Public store API, no key |
+| ~~Target~~ | DISABLED at the user's request — its windows close inside ~60s, so every alert was unactionable by the time he read it | `SKIP_SOURCES=target` |
+| Amazon | Ship to a US address | Plain HTTPS, no key |
 | PlayStation Direct (Sony) | Ship to a US address | Public page, no key |
 | Best Buy | Ship to address + stores within 25 mi of 94103 | Official Developer API, free key required |
 

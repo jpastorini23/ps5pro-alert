@@ -29,6 +29,7 @@ cat > "$PLIST" <<PLISTEOF
     <key>STATE_FILE</key><string>./state.local.json</string>
     <key>LOOP_SECONDS</key><string>3600</string>
     <key>NO_AUTO_OPEN</key><string>1</string>
+    <key>SKIP_SOURCES</key><string>target</string>
   </dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
