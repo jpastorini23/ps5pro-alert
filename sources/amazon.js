@@ -27,11 +27,17 @@ export async function check(_opts = {}) {
 
   const unavailable = UNAVAILABLE.test(html);
 
-  // Buybox price. Amazon renders nothing while the item is unavailable, so
-  // this parse is unproven until a real restock — hence the loud log below.
+  // Price must come from the buybox, not from anywhere on the page. The
+  // first a-offscreen on this page belonged to a recommended product, which
+  // read $598 for a $899 console — scoping prevents alerting on the wrong item.
+  const buybox =
+    (html.match(/id="corePrice[^"]*"[\s\S]{0,2500}/) || [])[0] ||
+    (html.match(/id="apex_desktop"[\s\S]{0,2500}/) || [])[0] ||
+    (html.match(/id="buybox"[\s\S]{0,4000}/) || [])[0] ||
+    '';
   const priceMatch =
-    html.match(/"priceAmount":\s*([\d.]+)/) ||
-    html.match(/class="a-offscreen">\$([\d,]+\.\d\d)/);
+    buybox.match(/"priceAmount":\s*([\d.]+)/) ||
+    buybox.match(/class="a-offscreen">\$([\d,]+\.\d\d)/);
   const price = priceMatch ? Number(priceMatch[1].replace(/,/g, '')) : null;
 
   // Only Amazon's own offer counts; marketplace resellers sit far above MSRP.
